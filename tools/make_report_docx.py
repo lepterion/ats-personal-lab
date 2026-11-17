@@ -11,6 +11,7 @@ bold/italic). A list item "- `signature` — text" is laid out like in the
 sample report: the signature on its own line, the description indented below.
 The lines between the "# " title and the first "## " form the title page:
 blocks separated by blank lines = header, topic, author, city.
+Every "## " section starts on a new page.
 
 The contents is a real TOC field (Word/OnlyOffice can update it). Page numbers
 are filled in from a test render with the OnlyOffice converter x2t if it is
@@ -178,6 +179,9 @@ def setup(doc):
         st.paragraph_format.space_before = Pt(before)
         st.paragraph_format.space_after = Pt(after)
         st.paragraph_format.keep_with_next = True
+    # Every top-level section starts on a new page.
+    doc.styles["Heading 1"].paragraph_format.page_break_before = True
+    doc.styles["Heading 1"].paragraph_format.space_before = Pt(0)
 
 
 def footers(doc, city):
@@ -236,7 +240,7 @@ def contents(doc, headings, pages):
         r = p.add_run("\t" + str(pages.get(h, "")))
         set_font(r, FONT, BODY)
     fld_char(last, "end")
-    last.add_run().add_break(WD_BREAK.PAGE)
+    # No page break here: the first section heading starts a new page itself.
 
 
 def add_table(doc, rows):
