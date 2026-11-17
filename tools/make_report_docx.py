@@ -276,6 +276,7 @@ def body(doc, lines):
             while not lines[j].startswith("```"):
                 j += 1
             p = fmt(doc.add_paragraph(), before=2, after=8, indent=0.75, first=0, line=1.0)
+            p.paragraph_format.keep_together = True
             run = p.add_run("\n".join(lines[i + 1:j]))
             set_font(run, MONO, CODE_BLOCK)
             no_proof(run)
@@ -309,6 +310,8 @@ def body(doc, lines):
             i += 1
         else:
             p = fmt(doc.add_paragraph(), first=1.0)
+            if line.startswith("**") and line.endswith("**"):
+                p.paragraph_format.keep_with_next = True
             # Justify plain text only: long `code` words make huge gaps when stretched.
             if "`" not in line:
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
