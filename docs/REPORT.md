@@ -9,7 +9,8 @@
 «Префіксне дерево (Trie) з автодоповненням»
 Варіант №3
 
-Виконав студент 2-го курсу групи ІПС-22
+Виконав студент 2-го курсу
+групи ІПС-22
 Петренко Богдан Олександрович
 
 Київ – 2026
@@ -132,7 +133,7 @@ C++17, лише стандартна бібліотека (`std::vector`, `std::
 
 ## Модулі програми
 
-**Клас `Trie`** (`src/Trie.h`, `src/Trie.cpp`)
+### Клас `Trie` (`src/Trie.h`, `src/Trie.cpp`)
 
 - `bool insert(const std::string& word)` — додає слово (UTF-8). Повертає false, якщо слово некоректне або вже є. O(L log σ + L·k).
 - `bool remove(const std::string& word)` — видаляє слово, звільняє непотрібні вузли й оновлює кеші. Повертає false, якщо слова немає. O(L log σ + L·σ·k).
@@ -145,7 +146,7 @@ C++17, лише стандартна бібліотека (`std::vector`, `std::
 - `bool checkInvariants() const` — перевірка для тестів: кожен кеш дорівнює перебудованому, немає «мертвих» вузлів, діти впорядковані, лічильники правильні.
 - Приватні: `findChild` (двійковий пошук дитини), `better` (порядок слів), `offerToTop`, `recomputeTop`, `topContains`.
 
-**Модуль `Utf8`** (`src/Utf8.h`, `src/Utf8.cpp`)
+### Модуль `Utf8` (`src/Utf8.h`, `src/Utf8.cpp`)
 
 - `utf8::decode` / `utf8::encode` — перетворення UTF-8 ↔ UTF-32 з перевіркою коректності (обрізані, надлишкові послідовності, сурогати).
 - `uk::letterRank(c)` — позиція символу в українській абетці (таблиця, O(1)).
@@ -153,16 +154,19 @@ C++17, лише стандартна бібліотека (`std::vector`, `std::
 - `uk::toLower(c)` — нижній регістр для української та латиниці.
 - `uk::normalizeWord(w)`, `uk::normalizePrefix(p)` — нормалізація та перевірка: лише українські літери, апостроф і дефіс між літерами.
 
-**Модуль `Dictionary`** (`src/Dictionary.h`, `src/Dictionary.cpp`)
+### Модуль `Dictionary` (`src/Dictionary.h`, `src/Dictionary.cpp`)
 
 - `LoadStats loadDictionary(Trie&, std::istream&)`, `loadDictionaryFile(Trie&, path)` — читання словника (слово на рядок, UTF-8, LF/CRLF, BOM), статистика: нові слова, дублікати, некоректні рядки, час.
 
-**Модуль `Benchmark`** (`src/Benchmark.h`, `src/Benchmark.cpp`)
+### Модуль `Benchmark` (`src/Benchmark.h`, `src/Benchmark.cpp`)
 
 - `autocompleteBruteForce(words, prefix)` — перебір без дерева, O(N·|p|).
 - `runBenchmark(trie, os)` — таблиця часу: кеш, BFS, перебір для префіксів довжини 1–5; час пошуку, видалення й додавання.
 
-**`src/main.cpp`** — консольне меню. **`tests/tests.cpp`** — юніт-тести.
+### Інші файли
+
+- `src/main.cpp` — консольне меню (функції `autocompleteMenu`, `searchMenu`, `addMenu`, `removeMenu`, `load`).
+- `tests/tests.cpp` — юніт-тести з власним мінімальним фреймворком (`TEST`, `CHECK`).
 
 ## Інтерфейс користувача
 
