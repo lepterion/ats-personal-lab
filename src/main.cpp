@@ -29,16 +29,27 @@ double usSince(Clock::time_point t) {
 std::string findDefaultDictionary() {
     for (const char* p : {"data/uk_words.txt", "../data/uk_words.txt", "../../data/uk_words.txt"}) {
         std::ifstream f(p);
-        if (f) return p;
+
+        if (f) {
+            return p;
+        }
     }
+
     return {};
 }
 
 // Reads one line; false on end of input.
 bool readLine(const char* prompt, std::string& out) {
     std::cout << prompt;
-    if (!std::getline(std::cin, out)) return false;
-    if (!out.empty() && out.back() == '\r') out.pop_back();
+
+    if (!std::getline(std::cin, out)) {
+        return false;
+    }
+
+    if (!out.empty() && out.back() == '\r') {
+        out.pop_back();
+    }
+
     return true;
 }
 
@@ -56,11 +67,17 @@ void load(Trie& trie, const std::string& path) {
 
 void autocompleteMenu(const Trie& trie) {
     std::string prefix;
-    if (!readLine("Префікс: ", prefix)) return;
-    if (uk::normalizePrefix(prefix).empty() && prefix.find_first_not_of(" \t") != std::string::npos) {
+
+    if (!readLine("Префікс: ", prefix)) {
+        return;
+    }
+
+    if (uk::normalizePrefix(prefix).empty() &&
+        prefix.find_first_not_of(" \t") != std::string::npos) {
         std::cout << "Некоректний префікс (дозволено лише українські літери, ' та -)\n";
         return;
     }
+
     auto t = Clock::now();
     const auto fast = trie.autocomplete(prefix);
     const double fastUs = usSince(t);
@@ -74,10 +91,13 @@ void autocompleteMenu(const Trie& trie) {
         std::cout << "Слів з префіксом \"" << prefix << "\" немає\n";
     } else {
         std::cout << "Топ-" << fast.size() << " найкоротших слів на \"" << prefix << "\":\n";
-        for (std::size_t i = 0; i < fast.size(); ++i)
-            std::cout << "  " << i + 1 << ". " << fast[i] << " ("
-                      << utf8::decode(fast[i]).size() << " літ.)\n";
+
+        for (std::size_t i = 0; i < fast.size(); ++i) {
+            std::cout << "  " << i + 1 << ". " << fast[i] << " (" << utf8::decode(fast[i]).size()
+                      << " літ.)\n";
+        }
     }
+
     std::cout << "Час: кеш у вузлах " << fastUs << " мкс; пошук у ширину " << bfsUs << " мкс ("
               << st.nodesVisited << " вузлів)" << (fast == bfs ? "" : "  [РЕЗУЛЬТАТИ РІЗНІ!]")
               << "\n";
@@ -85,21 +105,33 @@ void autocompleteMenu(const Trie& trie) {
 
 void searchMenu(const Trie& trie) {
     std::string w;
-    if (!readLine("Слово: ", w)) return;
+
+    if (!readLine("Слово: ", w)) {
+        return;
+    }
+
     const auto t = Clock::now();
     const bool found = trie.contains(w);
     const double us = usSince(t);
-    std::cout << (found ? "Слово є у словнику" : "Слова немає у словнику") << " (" << us << " мкс)\n";
-    if (!found && trie.hasPrefix(w)) std::cout << "Але є слова, що з нього починаються\n";
+    std::cout << (found ? "Слово є у словнику" : "Слова немає у словнику") << " (" << us
+              << " мкс)\n";
+    if (!found && trie.hasPrefix(w)) {
+        std::cout << "Але є слова, що з нього починаються\n";
+    }
 }
 
 void addMenu(Trie& trie) {
     std::string w;
-    if (!readLine("Нове слово: ", w)) return;
+
+    if (!readLine("Нове слово: ", w)) {
+        return;
+    }
+
     if (uk::normalizeWord(w).empty()) {
         std::cout << "Некоректне слово (дозволено лише українські літери, ' та - між ними)\n";
         return;
     }
+
     const auto t = Clock::now();
     const bool ok = trie.insert(w);
     const double us = usSince(t);
@@ -108,14 +140,18 @@ void addMenu(Trie& trie) {
 
 void removeMenu(Trie& trie) {
     std::string w;
-    if (!readLine("Слово для видалення: ", w)) return;
+
+    if (!readLine("Слово для видалення: ", w)) {
+        return;
+    }
+
     const auto t = Clock::now();
     const bool ok = trie.remove(w);
     const double us = usSince(t);
     std::cout << (ok ? "Видалено" : "Такого слова немає") << " (" << us << " мкс)\n";
 }
 
-}  // namespace
+}   // namespace
 
 int main(int argc, char** argv) {
 #ifdef _WIN32
@@ -125,8 +161,10 @@ int main(int argc, char** argv) {
     std::cout << "Префіксне дерево (Trie): словник і автодоповнення\n";
     Trie trie;
     const std::string path = argc > 1 ? argv[1] : findDefaultDictionary();
+
     if (path.empty()) {
-        std::cout << "Файл data/uk_words.txt не знайдено, словник порожній (пункт 5 завантажує файл)\n";
+        std::cout
+            << "Файл data/uk_words.txt не знайдено, словник порожній (пункт 5 завантажує файл)\n";
     } else {
         load(trie, path);
     }
@@ -141,8 +179,15 @@ int main(int argc, char** argv) {
                      "7 - бенчмарк (кеш vs пошук у ширину vs перебір)\n"
                      "0 - вихід\n> ";
         std::string choice;
-        if (!std::getline(std::cin, choice)) return 0;
-        if (!choice.empty() && choice.back() == '\r') choice.pop_back();
+
+        if (!std::getline(std::cin, choice)) {
+            return 0;
+        }
+
+        if (!choice.empty() && choice.back() == '\r') {
+            choice.pop_back();
+        }
+
         if (choice == "1") {
             autocompleteMenu(trie);
         } else if (choice == "2") {
@@ -153,7 +198,10 @@ int main(int argc, char** argv) {
             removeMenu(trie);
         } else if (choice == "5") {
             std::string p;
-            if (readLine("Шлях до файлу: ", p)) load(trie, p);
+
+            if (readLine("Шлях до файлу: ", p)) {
+                load(trie, p);
+            }
         } else if (choice == "6") {
             std::cout << "Слів: " << trie.size() << ", вузлів: " << trie.nodeCount() << "\n";
         } else if (choice == "7") {

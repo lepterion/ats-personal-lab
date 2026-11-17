@@ -8,11 +8,11 @@
 class Trie;
 
 struct LoadStats {
-    std::size_t lines = 0;       // non-empty lines read
-    std::size_t inserted = 0;    // new words added
-    std::size_t duplicates = 0;  // words that were already in the trie
-    std::size_t invalid = 0;     // lines that are not a Ukrainian word
-    double ms = 0.0;             // time to read and insert everything
+    std::size_t lines = 0;        // non-empty lines read
+    std::size_t inserted = 0;     // new words added
+    std::size_t duplicates = 0;   // words that were already in the trie
+    std::size_t invalid = 0;      // lines that are not a Ukrainian word
+    double ms = 0.0;              // time to read and insert everything
 };
 
 // One word per line (the first whitespace-separated token is taken, so lists

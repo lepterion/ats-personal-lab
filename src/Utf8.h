@@ -16,7 +16,7 @@ std::u32string decode(const std::string& s);
 // Encodes code points as UTF-8.
 std::string encode(const std::u32string& s);
 
-}  // namespace utf8
+}   // namespace utf8
 
 namespace uk {
 
@@ -41,4 +41,4 @@ std::u32string normalizeWord(const std::string& utf8Word);
 // (a prefix typed by the user, e.g. "м'").
 std::u32string normalizePrefix(const std::string& utf8Prefix);
 
-}  // namespace uk
+}   // namespace uk

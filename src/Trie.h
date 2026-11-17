@@ -84,10 +84,10 @@ private:
     using Child = std::pair<char32_t, std::unique_ptr<Node>>;
 
     struct Node {
-        std::vector<Child> children;          // sorted by uk::letterRank(letter)
+        std::vector<Child> children;   // sorted by uk::letterRank(letter)
         bool terminal = false;
-        std::u32string word;                  // the whole word, set if terminal
-        std::array<const Node*, kTop> top{};  // best words of the subtree (terminal nodes)
+        std::u32string word;                   // the whole word, set if terminal
+        std::array<const Node*, kTop> top{};   // best words of the subtree (terminal nodes)
         int topSize = 0;
     };
 

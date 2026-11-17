@@ -1,0 +1,26 @@
+# Code style of the project. Apply: clang-format -i src/*.cpp src/*.h tests/*.cpp
+# (IDE: Zed, VS Code, CLion and Visual Studio pick this file up automatically.)
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -4
+DerivePointerAlignment: false
+PointerAlignment: Left
+SpacesBeforeTrailingComments: 3
+# Every if/for/while body in braces, even a single statement: adding a second
+# line later cannot silently fall outside the block.
+InsertBraces: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: Inline
+# At most one blank line anywhere,
+# no blank line right after "{".
+SeparateDefinitionBlocks: Leave
+MaxEmptyLinesToKeep: 1
+KeepEmptyLines:
+  AtStartOfBlock: false
+  AtStartOfFile: false
+InsertNewlineAtEOF: true
+IncludeBlocks: Preserve

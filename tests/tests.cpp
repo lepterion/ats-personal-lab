@@ -20,40 +20,47 @@ struct TestCase {
     const char* name;
     void (*fn)();
 };
+
 std::vector<TestCase>& registry() {
     static std::vector<TestCase> r;
     return r;
 }
+
 struct Registrar {
     Registrar(const char* n, void (*f)()) { registry().push_back({n, f}); }
 };
+
 struct Failure : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-#define TEST(name)                                     \
-    static void name();                                \
-    static Registrar name##_reg(#name, &name);         \
+#define TEST(name)                             \
+    static void name();                        \
+    static Registrar name##_reg(#name, &name); \
     static void name()
 
-#define CHECK(cond)                                                                    \
-    do {                                                                               \
-        if (!(cond)) {                                                                 \
-            std::ostringstream m_;                                                     \
-            m_ << "line " << __LINE__ << ": CHECK(" #cond ")";                         \
-            throw Failure(m_.str());                                                   \
-        }                                                                              \
+#define CHECK(cond)                                            \
+    do {                                                       \
+        if (!(cond)) {                                         \
+            std::ostringstream m_;                             \
+            m_ << "line " << __LINE__ << ": CHECK(" #cond ")"; \
+            throw Failure(m_.str());                           \
+        }                                                      \
     } while (0)
 
 using Words = std::vector<std::string>;
 
 Trie makeTrie(const Words& words) {
     Trie t;
-    for (const auto& w : words) t.insert(w);
+
+    for (const auto& w : words) {
+        t.insert(w);
+    }
+
     return t;
 }
 
-}  // namespace
+}   // namespace
 
 // ---------- UTF-8 and normalisation ----------
 
@@ -66,10 +73,22 @@ TEST(utf8_roundtrip) {
 
 TEST(utf8_rejects_malformed) {
     bool thrown = false;
-    try { utf8::decode("\xD0"); } catch (const std::invalid_argument&) { thrown = true; }
+
+    try {
+        utf8::decode("\xD0");
+    } catch (const std::invalid_argument&) {
+        thrown = true;
+    }
+
     CHECK(thrown);
     thrown = false;
-    try { utf8::decode("\xC0\xAF"); } catch (const std::invalid_argument&) { thrown = true; }   // overlong
+
+    try {
+        utf8::decode("\xC0\xAF");
+    } catch (const std::invalid_argument&) {
+        thrown = true;
+    }   // overlong
+
     CHECK(thrown);
 }
 
@@ -95,8 +114,11 @@ TEST(normalize_word) {
 TEST(alphabet_order) {
     // Ukrainian order: г < ґ < д, е < є < ж, и < і < ї < й.
     const char* ordered[] = {"г", "ґ", "д", "е", "є", "ж", "и", "і", "ї", "й", "я"};
-    for (int i = 0; i + 1 < 11; ++i)
+
+    for (int i = 0; i + 1 < 11; ++i) {
         CHECK(uk::alphabeticLess(utf8::decode(ordered[i]), utf8::decode(ordered[i + 1])));
+    }
+
     CHECK(uk::alphabeticLess(utf8::decode("кіт"), utf8::decode("кітель")));
     CHECK(!uk::alphabeticLess(utf8::decode("кіт"), utf8::decode("кіт")));
 }
@@ -115,7 +137,7 @@ TEST(trie_insert_contains) {
     CHECK(!t.insert("cat"));
     CHECK(t.size() == 3);
     CHECK(t.contains("кіт") && t.contains("Кіт") && t.contains("кит") && t.contains("кітель"));
-    CHECK(!t.contains("кі"));       // a prefix, not a word
+    CHECK(!t.contains("кі"));   // a prefix, not a word
     CHECK(!t.contains("кітелі"));
     CHECK(t.hasPrefix("кі") && t.hasPrefix("") && !t.hasPrefix("ко"));
     CHECK(t.checkInvariants());
@@ -138,7 +160,7 @@ TEST(trie_remove) {
     CHECK(t.remove("про"));        // a word inside other words: no nodes freed
     CHECK(!t.contains("про") && t.contains("проба") && t.contains("пробі"));
     CHECK(t.nodeCount() == nodes);
-    CHECK(t.remove("проба"));      // frees one node ("а")
+    CHECK(t.remove("проба"));   // frees one node ("а")
     CHECK(t.nodeCount() == nodes - 1);
     CHECK(!t.remove("проба"));
     CHECK(t.size() == 2);
@@ -173,6 +195,7 @@ TEST(autocomplete_shorter_first_then_alphabet) {
     const Words expected = {"г", "га", "гє", "гі", "гя"};
     CHECK(t.autocomplete("г") == expected);
     CHECK(t.autocompleteBfs("г") == expected);
+
     // ґ is a separate letter (after г), so ґа is a separate branch.
     CHECK(t.autocomplete("ґ") == Words{"ґа"});
 }
@@ -200,6 +223,7 @@ TEST(autocomplete_updates_after_insert_and_remove) {
     CHECK((t.autocomplete("про") == Words{"про", "проба", "проза", "просо", "прокат"}));
     t.remove("проба");
     t.remove("про");
+
     // A word that had dropped out of the cache must come back.
     CHECK((t.autocomplete("про") == Words{"проза", "просо", "прокат", "пролог", "промінь"}));
     CHECK(t.autocomplete("про") == t.autocompleteBfs("про"));
@@ -226,28 +250,48 @@ TEST(randomized_against_brute_force) {
     std::uniform_int_distribution<int> len(1, 6), letter(0, 7), coin(0, 2);
     Trie t;
     std::set<std::string> model;
+
     for (int step = 0; step < 3000; ++step) {
         std::u32string w;
         const int n = len(rng);
-        for (int i = 0; i < n; ++i) w.push_back(letters[letter(rng)]);
+
+        for (int i = 0; i < n; ++i) {
+            w.push_back(letters[letter(rng)]);
+        }
+
         const std::string s = utf8::encode(w);
+
         if (coin(rng) == 0) {
             CHECK(t.remove(s) == (model.erase(s) == 1));
         } else {
             CHECK(t.insert(s) == model.insert(s).second);
         }
+
         CHECK(t.size() == model.size());
-        if (step % 50 == 0) CHECK(t.checkInvariants());
+
+        if (step % 50 == 0) {
+            CHECK(t.checkInvariants());
+        }
+
         std::vector<std::u32string> all;
-        for (const auto& m : model) all.push_back(utf8::decode(m));
+
+        for (const auto& m : model) {
+            all.push_back(utf8::decode(m));
+        }
+
         for (const char* p : {"", "а", "аб", "ґ", "і", "ія", "ааа"}) {
             const auto brute = autocompleteBruteForce(all, utf8::decode(p));
             CHECK(t.autocomplete(p) == brute);
             CHECK(t.autocompleteBfs(p) == brute);
         }
     }
+
     CHECK(t.checkInvariants());
-    for (const auto& m : model) CHECK(t.remove(m));
+
+    for (const auto& m : model) {
+        CHECK(t.remove(m));
+    }
+
     CHECK(t.empty() && t.nodeCount() == 1 && t.checkInvariants());
 }
 
@@ -267,15 +311,25 @@ TEST(load_dictionary_stream) {
 TEST(load_dictionary_missing_file) {
     Trie t;
     bool thrown = false;
-    try { loadDictionaryFile(t, "no/such/file.txt"); } catch (const std::runtime_error&) { thrown = true; }
+
+    try {
+        loadDictionaryFile(t, "no/such/file.txt");
+    } catch (const std::runtime_error&) {
+        thrown = true;
+    }
+
     CHECK(thrown);
 }
 
 int main(int argc, char** argv) {
     const char* filter = argc > 1 ? argv[1] : nullptr;
     int passed = 0, failed = 0;
+
     for (const auto& tc : registry()) {
-        if (filter != nullptr && std::strstr(tc.name, filter) == nullptr) continue;
+        if (filter != nullptr && std::strstr(tc.name, filter) == nullptr) {
+            continue;
+        }
+
         try {
             tc.fn();
             ++passed;
@@ -285,6 +339,7 @@ int main(int argc, char** argv) {
             std::cout << "[FAIL] " << tc.name << ": " << e.what() << "\n";
         }
     }
+
     std::cout << "\n" << passed << " passed, " << failed << " failed\n";
     return failed == 0 ? 0 : 1;
 }
