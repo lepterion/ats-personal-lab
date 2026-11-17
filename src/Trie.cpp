@@ -12,6 +12,8 @@ Trie& Trie::operator=(Trie&&) noexcept = default;
 
 void Trie::clear() {
     root_ = std::make_unique<Node>();
+    wordTable_.clear();
+    freeIds_.clear();
     words_ = 0;
     nodes_ = 1;
 }
@@ -43,18 +45,41 @@ const Trie::Node* Trie::findNode(const std::u32string& key) const {
     return n;
 }
 
-// a is a better (earlier) autocomplete answer than b: shorter, or same length
-// and alphabetically smaller.
-bool Trie::better(const Node* a, const Node* b) {
-    if (a->word.size() != b->word.size()) {
-        return a->word.size() < b->word.size();
+Trie::WordId Trie::allocateWord(const std::u32string& key) {
+    if (!freeIds_.empty()) {
+        const WordId id = freeIds_.back();
+        freeIds_.pop_back();
+        wordTable_[id] = key;
+
+        return id;
     }
 
-    return uk::alphabeticLess(a->word, b->word);
+    wordTable_.push_back(key);
+
+    return static_cast<WordId>(wordTable_.size() - 1);
+}
+
+void Trie::releaseWord(WordId id) {
+    wordTable_[id].clear();
+    wordTable_[id].shrink_to_fit();
+    freeIds_.push_back(id);
+}
+
+// a is a better (earlier) autocomplete answer than b: shorter, or same length
+// and alphabetically smaller.
+bool Trie::better(WordId a, WordId b) const {
+    const std::u32string& wa = wordTable_[a];
+    const std::u32string& wb = wordTable_[b];
+
+    if (wa.size() != wb.size()) {
+        return wa.size() < wb.size();
+    }
+
+    return uk::alphabeticLess(wa, wb);
 }
 
 // Inserts candidate into the sorted cache of n if it is among the kTop best. O(kTop).
-void Trie::offerToTop(Node* n, const Node* candidate) {
+void Trie::offerToTop(Node* n, WordId candidate) const {
     if (n->topSize == kTop && !better(candidate, n->top[kTop - 1])) {
         return;
     }
@@ -77,11 +102,11 @@ void Trie::offerToTop(Node* n, const Node* candidate) {
 // Rebuilds the cache of n from its own word and the caches of its children.
 // Correct because the kTop best words of a subtree are among the node's own word
 // and the kTop best words of each child subtree. O(sigma * kTop).
-void Trie::recomputeTop(Node* n) {
+void Trie::recomputeTop(Node* n) const {
     n->topSize = 0;
 
-    if (n->terminal) {
-        offerToTop(n, n);
+    if (n->terminal()) {
+        offerToTop(n, n->word);
     }
 
     for (const Child& ch : n->children) {
@@ -91,9 +116,9 @@ void Trie::recomputeTop(Node* n) {
     }
 }
 
-bool Trie::topContains(const Node* n, const Node* x) {
+bool Trie::topContains(const Node* n, WordId id) {
     for (int i = 0; i < n->topSize; ++i) {
-        if (n->top[i] == x) {
+        if (n->top[i] == id) {
             return true;
         }
     }
@@ -101,11 +126,11 @@ bool Trie::topContains(const Node* n, const Node* x) {
     return false;
 }
 
-std::vector<std::string> Trie::topAsStrings(const Node* n, std::size_t k) {
+std::vector<std::string> Trie::topAsStrings(const Node* n, std::size_t k) const {
     std::vector<std::string> out;
 
     for (int i = 0; i < n->topSize && out.size() < k; ++i) {
-        out.push_back(utf8::encode(n->top[i]->word));
+        out.push_back(utf8::encode(wordTable_[n->top[i]]));
     }
 
     return out;
@@ -143,17 +168,16 @@ bool Trie::insert(const std::string& word) {
         path.push_back(n);
     }
 
-    if (n->terminal) {
+    if (n->terminal()) {
         return false;   // already in the dictionary
     }
 
-    n->terminal = true;
-    n->word = key;
+    n->word = allocateWord(key);
     ++words_;
 
     // The new word belongs to the subtree of every node on the path.
     for (Node* p : path) {
-        offerToTop(p, n);
+        offerToTop(p, n->word);
     }
 
     return true;
@@ -181,21 +205,23 @@ bool Trie::remove(const std::string& word) {
         path.push_back(n);
     }
 
-    if (!n->terminal) {
+    if (!n->terminal()) {
         return false;
     }
 
-    const Node* removed = n;   // only compared by address below, never dereferenced
-    n->terminal = false;
-    n->word.clear();
+    // The id stays valid until the caches are repaired, then it is freed.
+    const WordId removed = n->word;
+    n->word = kNoWord;
     --words_;
 
     // Bottom-up: free nodes that have become useless (no word, no children),
     // and repair the caches that contained the removed word.
+    bool repairRoot = true;
+
     for (std::size_t i = path.size() - 1; i > 0; --i) {
         Node* cur = path[i];
 
-        if (!cur->terminal && cur->children.empty()) {
+        if (!cur->terminal() && cur->children.empty()) {
             Node* parent = path[i - 1];
             const char32_t c = key[i - 1];
             parent->children.erase(std::find_if(parent->children.begin(), parent->children.end(),
@@ -207,15 +233,18 @@ bool Trie::remove(const std::string& word) {
         // If the word is not in this subtree's top, it is not in any ancestor's
         // top either (an ancestor's best words come from its children's best).
         if (!topContains(cur, removed)) {
-            return true;
+            repairRoot = false;
+            break;
         }
 
         recomputeTop(cur);
     }
 
-    if (topContains(root_.get(), removed)) {
+    if (repairRoot && topContains(root_.get(), removed)) {
         recomputeTop(root_.get());
     }
+
+    releaseWord(removed);
 
     return true;
 }
@@ -228,7 +257,8 @@ bool Trie::contains(const std::string& word) const {
     }
 
     const Node* n = findNode(key);
-    return n != nullptr && n->terminal;
+
+    return n != nullptr && n->terminal();
 }
 
 bool Trie::hasPrefix(const std::string& prefix) const {
@@ -285,8 +315,8 @@ std::vector<std::string> Trie::autocompleteBfs(const std::string& prefix, std::s
         queue.pop_front();
         ++visited;
 
-        if (n->terminal) {
-            out.push_back(utf8::encode(n->word));
+        if (n->terminal()) {
+            out.push_back(utf8::encode(wordTable_[n->word]));
         }
 
         for (const Child& ch : n->children) {
@@ -310,8 +340,8 @@ std::vector<std::string> Trie::allWords() const {
         const Node* n = stack.back();
         stack.pop_back();
 
-        if (n->terminal) {
-            out.push_back(utf8::encode(n->word));
+        if (n->terminal()) {
+            out.push_back(utf8::encode(wordTable_[n->word]));
         }
 
         // Push in reverse so the alphabetically first child is processed first.
@@ -324,7 +354,8 @@ std::vector<std::string> Trie::allWords() const {
 }
 
 bool Trie::checkInvariants() const {
-    std::size_t nodes = 0, words = 0;
+    std::size_t nodes = 0;
+    std::size_t words = 0;
     bool ok = true;
 
     // Post-order: children are checked before their parent.
@@ -352,11 +383,15 @@ bool Trie::checkInvariants() const {
         const Node* n = f.n;
         ++nodes;
 
-        if (n->terminal) {
+        if (n->terminal()) {
             ++words;
+
+            if (wordTable_[n->word].empty()) {
+                ok = false;   // a terminal node points to a freed id
+            }
         }
 
-        if (n != root_.get() && !n->terminal && n->children.empty()) {
+        if (n != root_.get() && !n->terminal() && n->children.empty()) {
             ok = false;   // dead node
         }
 
@@ -369,8 +404,8 @@ bool Trie::checkInvariants() const {
         // Recompute the cache into a temporary node, without touching n.
         Node tmp;
 
-        if (n->terminal) {
-            offerToTop(&tmp, n);
+        if (n->terminal()) {
+            offerToTop(&tmp, n->word);
         }
 
         for (const Child& ch : n->children) {
@@ -390,5 +425,34 @@ bool Trie::checkInvariants() const {
         }
     }
 
-    return ok && nodes == nodes_ && words == words_;
+    return ok && nodes == nodes_ && words == words_ &&
+           wordTable_.size() == words_ + freeIds_.size();
+}
+
+std::size_t Trie::memoryUsage() const {
+    std::size_t bytes = sizeof(*this);
+    std::vector<const Node*> stack{root_.get()};
+
+    while (!stack.empty()) {
+        const Node* n = stack.back();
+        stack.pop_back();
+        bytes += sizeof(Node) + n->children.capacity() * sizeof(Child);
+
+        for (const Child& ch : n->children) {
+            stack.push_back(ch.second.get());
+        }
+    }
+
+    bytes += wordTable_.capacity() * sizeof(std::u32string) + freeIds_.capacity() * sizeof(WordId);
+
+    // A short word fits into the string object itself (small string optimisation).
+    const std::u32string probe;
+
+    for (const std::u32string& w : wordTable_) {
+        if (w.capacity() > probe.capacity()) {
+            bytes += (w.capacity() + 1) * sizeof(char32_t);
+        }
+    }
+
+    return bytes;
 }

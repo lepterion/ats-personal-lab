@@ -203,7 +203,9 @@ int main(int argc, char** argv) {
                 load(trie, p);
             }
         } else if (choice == "6") {
-            std::cout << "Слів: " << trie.size() << ", вузлів: " << trie.nodeCount() << "\n";
+            std::cout << "Слів: " << trie.size() << ", вузлів: " << trie.nodeCount()
+                      << ", пам'ять структури: " << trie.memoryUsage() / (1024.0 * 1024.0)
+                      << " МБ\n";
         } else if (choice == "7") {
             runBenchmark(trie, std::cout);
         } else if (choice == "0") {

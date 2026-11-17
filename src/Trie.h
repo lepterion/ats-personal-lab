@@ -14,9 +14,15 @@
 //
 // Children of a node are a vector sorted by letter rank: binary search,
 // O(log sigma) per step, and in-order traversal gives alphabetical order.
+//
+// Memory: the words themselves live in one table (wordTable_), a node only holds
+// the 4-byte id of its word and the ids in its cache. Most nodes are not the end
+// of a word, so keeping a string in every node would waste 32 bytes on each of
+// them; this layout makes a node 56 bytes instead of 112 (64-bit build).
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -75,31 +81,43 @@ public:
     // All words in alphabetical order (DFS). O(total length).
     std::vector<std::string> allWords() const;
 
+    // Bytes held by the structure: nodes, child arrays, the word table and the
+    // words' characters (without the allocator's own overhead). O(nodes).
+    std::size_t memoryUsage() const;
+
     // Debug check: every node's cache equals the recomputed one and there are no
     // dead nodes (non-terminal leaves). O(n * sigma * kTop). Used by the tests.
     bool checkInvariants() const;
 
 private:
+    using WordId = std::uint32_t;
+    static constexpr WordId kNoWord = UINT32_MAX;
+
     struct Node;
     using Child = std::pair<char32_t, std::unique_ptr<Node>>;
 
     struct Node {
-        std::vector<Child> children;   // sorted by uk::letterRank(letter)
-        bool terminal = false;
-        std::u32string word;                   // the whole word, set if terminal
-        std::array<const Node*, kTop> top{};   // best words of the subtree (terminal nodes)
-        int topSize = 0;
+        std::vector<Child> children;      // sorted by uk::letterRank(letter)
+        WordId word = kNoWord;            // id of the word ending here, if any
+        std::array<WordId, kTop> top{};   // best words of the subtree, best first
+        std::uint8_t topSize = 0;
+
+        bool terminal() const { return word != kNoWord; }
     };
 
     std::unique_ptr<Node> root_;
+    std::vector<std::u32string> wordTable_;   // id -> word; empty for a freed id
+    std::vector<WordId> freeIds_;             // ids of removed words, reused first
     std::size_t words_ = 0;
     std::size_t nodes_ = 1;
 
     static Node* findChild(const Node* n, char32_t c);
     const Node* findNode(const std::u32string& key) const;
-    static bool better(const Node* a, const Node* b);
-    static void offerToTop(Node* n, const Node* candidate);
-    static void recomputeTop(Node* n);
-    static bool topContains(const Node* n, const Node* x);
-    static std::vector<std::string> topAsStrings(const Node* n, std::size_t k);
+    WordId allocateWord(const std::u32string& key);
+    void releaseWord(WordId id);
+    bool better(WordId a, WordId b) const;
+    void offerToTop(Node* n, WordId candidate) const;
+    void recomputeTop(Node* n) const;
+    static bool topContains(const Node* n, WordId id);
+    std::vector<std::string> topAsStrings(const Node* n, std::size_t k) const;
 };
