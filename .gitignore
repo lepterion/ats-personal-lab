@@ -10,3 +10,4 @@ out/
 *.obj
 __pycache__/
 ~$*.docx
+.~lock.*#
